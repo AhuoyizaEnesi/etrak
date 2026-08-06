@@ -9,6 +9,7 @@
   --cream: #f1ebe0;
   --bronze: #9c7248;
   --alert: #a8442c; /* warm brick for rejected files and unreachable backend */
+  --green: #3f6b45; /* correct-prediction verdict; 5.9:1 on paper */
 
   --serif: var(--font-serif), Georgia, serif;
   --sans: var(--font-sans), system-ui, -apple-system, sans-serif;
@@ -154,13 +155,13 @@ h1 {
 }
 
 .meta .ok {
-  color: var(--ink);
-  font-weight: 500;
+  color: var(--green);
+  font-weight: 600;
 }
 
 .meta .off {
   color: var(--alert);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* ---------- probabilities ---------- */

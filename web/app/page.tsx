@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   API_BASE_URL,
   type PredictResponse,
@@ -10,6 +10,9 @@ import {
 } from "@/lib/config";
 
 const SAMPLE_RATE_HZ = 100;
+
+/* How many of the scored classes the distribution lists. */
+const TOP_N = 3;
 
 const pct = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -202,10 +205,32 @@ export default function Home() {
     ? Object.entries(outcome.probabilities).sort((a, b) => b[1] - a[1])
     : [];
 
+  // The tail is almost always near zero and just adds noise; keep the count of
+  // scored classes in the heading so the shortlist does not read as the whole model.
+  const shown = ranked.slice(0, TOP_N);
+
   const busy = loading || uploading;
   const seconds = outcome?.samples
     ? Math.round(outcome.samples / SAMPLE_RATE_HZ)
     : null;
+
+  // Recording shape, then the verdict. Uploads have no known label, so they end
+  // after the sample count.
+  const metaParts: React.ReactNode[] = [];
+  if (outcome?.samples) {
+    metaParts.push(
+      `${seconds} s`,
+      `${SAMPLE_RATE_HZ} Hz`,
+      `${outcome.samples.toLocaleString()} samples`,
+    );
+  }
+  if (outcome?.trueLabel !== undefined) {
+    metaParts.push(
+      <span key="verdict" className={outcome.correct ? "ok" : "off"}>
+        {outcome.correct ? "Match" : "Miss"}
+      </span>,
+    );
+  }
 
   return (
     <div
@@ -246,34 +271,19 @@ export default function Home() {
               </p>
 
               <p className="meta">
-                <b>{shortId(outcome.filename)}</b>
-                {outcome.samples ? (
-                  <>
-                    {" · "}
-                    {seconds} s{" · "}
-                    {SAMPLE_RATE_HZ} Hz{" · "}
-                    {outcome.samples.toLocaleString()} samples
-                  </>
-                ) : null}
-                {" · "}
-                {outcome.predicted}
-                {outcome.trueLabel !== undefined && (
-                  <>
-                    {" · actual "}
-                    {outcome.trueLabel}
-                    {" · "}
-                    <span className={outcome.correct ? "ok" : "off"}>
-                      {outcome.correct ? "Match" : "Mismatch"}
-                    </span>
-                  </>
-                )}
+                {metaParts.map((part, index) => (
+                  <Fragment key={index}>
+                    {index > 0 && " · "}
+                    {part}
+                  </Fragment>
+                ))}
               </p>
 
               <p className="prob-label">
-                Probability across {ranked.length} exercises
+                Top {shown.length} of {ranked.length} exercises
               </p>
 
-              {ranked.map(([code, value], index) => (
+              {shown.map(([code, value], index) => (
                 <div
                   key={code}
                   className={`prob-row${index === 0 ? " winner" : ""}`}
