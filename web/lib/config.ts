@@ -1,9 +1,10 @@
 /**
- * Backend location. Swap this one constant (or set NEXT_PUBLIC_API_BASE_URL at
- * build time) to point the frontend at a deployed API instead of localhost.
+ * Backend location. Defaults to the deployed API; set NEXT_PUBLIC_BACKEND_URL at
+ * build time to point elsewhere - e.g. NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000
+ * when running the backend locally.
  */
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://etrak.onrender.com";
 
 export interface Recording {
   filename: string;

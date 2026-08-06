@@ -65,8 +65,10 @@ export default function Home() {
       })
       .catch((err: Error) => {
         if (!cancelled) {
+          // The backend sleeps on the free tier, so the first request after a
+          // quiet spell usually fails while the instance spins back up.
           setError(
-            `Could not reach the backend at ${API_BASE_URL} (${err.message}). Start it with: python -m uvicorn main:app --app-dir backend --port 8000`,
+            `Could not reach the backend (${err.message}). The server sleeps after a period of inactivity, and the first request can take up to a minute to wake it. Wait a moment, then reload the page.`,
           );
         }
       });
@@ -88,11 +90,19 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: selected }),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      // A status code means the server answered, so it is awake - report the
+      // status rather than blaming a cold start.
+      if (!response.ok) throw new Error(`the server responded with HTTP ${response.status}`);
       setResult((await response.json()) as PredictResponse);
     } catch (err) {
       setResult(null);
-      setError(`Prediction failed: ${(err as Error).message}`);
+      // fetch() rejects with a TypeError when the request never lands, which on
+      // the free tier usually means the instance is still spinning up.
+      setError(
+        err instanceof TypeError
+          ? `Could not reach the backend (${err.message}). The server sleeps after a period of inactivity, and the first request can take up to a minute to wake it. Wait a moment, then try again.`
+          : `Prediction failed: ${(err as Error).message}.`,
+      );
     } finally {
       setLoading(false);
     }
