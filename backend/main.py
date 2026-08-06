@@ -1,43 +1,38 @@
 """FastAPI service around the saved exercise classifier.
 
-Loads the four artifacts written by src/train_final.py once at startup, then serves
-two endpoints: one listing the recordings available to try, one running a chosen
-recording through the full feature-extraction -> scale -> predict path.
+Predictions are served from the precomputed feature table (features.csv) rather
+than from raw recordings. The raw CSVs are far too large to deploy, but every one
+of them is already represented in features.csv by the feature vector the model
+actually consumes — so nothing is lost at inference time.
+
+Consequences of that choice, all deliberate:
+  * no filesystem access to data/ and no dependency on src/features.py
+  * no /signal endpoint, because the raw waveform is not available
+  * only recordings present in features.csv can be classified
 """
 
 from __future__ import annotations
 
 import json
 import os
-import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import joblib
-import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-from features import (  # noqa: E402
-    ACCEL_AXES,
-    DATA_DIR,
-    KEPT_CLASSES,
-    SAMPLE_RATE_HZ,
-    extract_features,
-    load_recording,
-    parse_activity,
-)
-
-# Enough resolution to see individual reps without shipping 46k points to a browser.
-DEFAULT_SIGNAL_POINTS = 400
-
 MODEL_DIR = ROOT / "models"
+FEATURES_CSV = ROOT / "features.csv"
+
+# Columns in features.csv that describe the recording rather than the movement.
+ID_COLUMN = "recording"
+LABEL_COLUMN = "activity"
+META_COLUMNS = (ID_COLUMN, LABEL_COLUMN, "n_samples")
 
 # Comma-separated origins, or "*" for any. Defaults open so a frontend on a
 # different port or domain can call this during development.
@@ -78,45 +73,56 @@ class Artifacts:
                 f"feature_columns.json lists {len(self.feature_columns)}"
             )
 
-    def predict(self, features: dict[str, float]) -> tuple[str, float, dict[str, float]]:
-        """Order, scale, and classify one feature dict."""
-        vector = pd.DataFrame(
-            [[features[c] for c in self.feature_columns]], columns=self.feature_columns
-        )
+    def predict(self, vector: pd.DataFrame) -> tuple[str, float, dict[str, float]]:
+        """Scale and classify one already-ordered single-row feature frame."""
         proba = self.model.predict_proba(self.scaler.transform(vector))[0]
-        distribution = {
-            str(label): float(p) for label, p in zip(self.model.classes_, proba)
-        }
+        distribution = {str(label): float(p) for label, p in zip(self.model.classes_, proba)}
         predicted = max(distribution, key=distribution.get)
         return predicted, distribution[predicted], distribution
 
 
-def discover_recordings(data_dir: Path) -> dict[str, str]:
-    """Map filename -> true label for the kept classes.
+def load_feature_table(path: Path, feature_columns: list[str]) -> pd.DataFrame:
+    """Read features.csv and index it by recording id.
 
-    Doubles as the allow-list for /predict: a filename that is not a key here is
-    never opened, so the endpoint cannot be walked out of the data directory.
+    Every column the model expects must be present, and ids must be unique — both
+    are checked here so a bad table fails at startup rather than at request time.
     """
-    kept = set(KEPT_CLASSES)
-    found: dict[str, str] = {}
-    for path in sorted(data_dir.glob("*.csv")):
-        try:
-            activity = parse_activity(path.name)
-        except ValueError:
-            continue
-        if activity in kept:
-            found[path.name] = activity
-    return found
+    if not path.exists():
+        raise RuntimeError(f"{path} not found - run python src/features.py first")
+
+    table = pd.read_csv(path)
+
+    for column in (ID_COLUMN, LABEL_COLUMN):
+        if column not in table.columns:
+            raise RuntimeError(f"{path} has no '{column}' column")
+
+    absent = [c for c in feature_columns if c not in table.columns]
+    if absent:
+        raise RuntimeError(
+            f"{path} is missing {len(absent)} feature column(s) the model expects: "
+            f"{', '.join(absent[:5])}{' ...' if len(absent) > 5 else ''}"
+        )
+
+    duplicated = table[ID_COLUMN].duplicated()
+    if duplicated.any():
+        raise RuntimeError(
+            f"{path} has duplicate ids: {', '.join(table.loc[duplicated, ID_COLUMN].head())}"
+        )
+
+    return table.set_index(ID_COLUMN, drop=False)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.artifacts = Artifacts(MODEL_DIR)
-    app.state.recordings = discover_recordings(DATA_DIR)
+    artifacts = Artifacts(MODEL_DIR)
+    table = load_feature_table(FEATURES_CSV, artifacts.feature_columns)
+
+    app.state.artifacts = artifacts
+    app.state.table = table
     print(
-        f"Loaded {len(app.state.artifacts.labels)} classes, "
-        f"{len(app.state.artifacts.feature_columns)} features, "
-        f"{len(app.state.recordings)} recordings"
+        f"Loaded {len(artifacts.labels)} classes, "
+        f"{len(artifacts.feature_columns)} features, "
+        f"{len(table)} recordings from {FEATURES_CSV.name}"
     )
     yield
 
@@ -124,7 +130,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Exercise Detection from Wrist Motion",
     description="Classify which strength exercise a wrist-IMU recording contains.",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -138,8 +144,8 @@ app.add_middleware(
 
 
 class Recording(BaseModel):
-    filename: str
-    activity: str = Field(description="True label parsed from the filename")
+    filename: str = Field(description="Recording id, as stored in features.csv")
+    activity: str = Field(description="True label")
 
 
 class RecordingsResponse(BaseModel):
@@ -148,23 +154,8 @@ class RecordingsResponse(BaseModel):
     recordings: list[Recording]
 
 
-class SignalPoint(BaseModel):
-    t: float = Field(description="Seconds from the start of the recording")
-    value: float = Field(description="Acceleration magnitude in g")
-
-
-class SignalResponse(BaseModel):
-    filename: str
-    activity: str
-    duration_s: float
-    n_samples: int = Field(description="Samples in the source recording")
-    n_points: int = Field(description="Points after downsampling")
-    peak: float
-    series: list[SignalPoint]
-
-
 class PredictRequest(BaseModel):
-    filename: str = Field(description="A filename returned by GET /recordings")
+    filename: str = Field(description="An id returned by GET /recordings")
 
 
 class PredictResponse(BaseModel):
@@ -178,83 +169,46 @@ class PredictResponse(BaseModel):
 
 @app.get("/recordings", response_model=RecordingsResponse)
 def list_recordings() -> dict[str, Any]:
-    """Every recording the service can classify, with its ground-truth label."""
-    recordings = app.state.recordings
+    """Every recording in the feature table, with its ground-truth label."""
+    table = app.state.table
     return {
-        "count": len(recordings),
+        "count": len(table),
         "classes": app.state.artifacts.labels,
         "recordings": [
-            {"filename": name, "activity": activity} for name, activity in recordings.items()
+            {"filename": str(row[ID_COLUMN]), "activity": str(row[LABEL_COLUMN])}
+            for _, row in table.iterrows()
         ],
-    }
-
-
-@app.get("/signal", response_model=SignalResponse)
-def signal(
-    filename: str = Query(description="A filename returned by GET /recordings"),
-    points: int = Query(DEFAULT_SIGNAL_POINTS, ge=50, le=4000),
-) -> dict[str, Any]:
-    """Acceleration magnitude over time, downsampled for plotting.
-
-    Downsampling averages within equal-width blocks rather than taking every Nth
-    sample. Stride sampling at this ratio would alias the rep cadence and could drop
-    peaks entirely; block means keep the envelope the reps actually trace.
-    """
-    name = Path(filename).name
-    activity = app.state.recordings.get(name)
-    if activity is None:
-        raise HTTPException(status_code=404, detail=f"unknown recording: {filename}")
-
-    try:
-        df = load_recording(DATA_DIR / name)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"could not read recording: {type(exc).__name__}: {exc}"
-        ) from exc
-
-    magnitude = np.sqrt((df[ACCEL_AXES].to_numpy(float) ** 2).sum(axis=1))
-    n = len(magnitude)
-    duration = n / SAMPLE_RATE_HZ
-
-    n_points = min(points, n)
-    edges = np.linspace(0, n, n_points + 1).astype(int)
-    series = [
-        {
-            "t": round(float(edges[i] / SAMPLE_RATE_HZ), 3),
-            "value": round(float(magnitude[edges[i] : max(edges[i + 1], edges[i] + 1)].mean()), 5),
-        }
-        for i in range(n_points)
-    ]
-
-    return {
-        "filename": name,
-        "activity": activity,
-        "duration_s": round(duration, 2),
-        "n_samples": n,
-        "n_points": len(series),
-        "peak": round(float(magnitude.max()), 5),
-        "series": series,
     }
 
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(request: PredictRequest) -> dict[str, Any]:
-    """Run one recording end to end: raw CSV -> features -> scale -> class."""
-    filename = Path(request.filename).name  # strip any directory component
-    true_label = app.state.recordings.get(filename)
-    if true_label is None:
-        raise HTTPException(status_code=404, detail=f"unknown recording: {request.filename}")
+    """Look up a precomputed feature row, scale it, and classify."""
+    table = app.state.table
+    artifacts = app.state.artifacts
 
-    try:
-        features = extract_features(DATA_DIR / filename)
-    except Exception as exc:
+    name = request.filename
+    if name not in table.index:
+        raise HTTPException(status_code=404, detail=f"unknown recording: {name}")
+
+    # Single-row frame keeps the column names, so sklearn sees the same feature
+    # order it was fit with instead of a bare array.
+    vector = table.loc[[name], artifacts.feature_columns]
+    if len(vector) != 1:
+        raise HTTPException(status_code=500, detail=f"ambiguous id: {name}")
+
+    if vector.isna().any().any():
+        blank = vector.columns[vector.isna().iloc[0]].tolist()
         raise HTTPException(
-            status_code=500, detail=f"feature extraction failed: {type(exc).__name__}: {exc}"
-        ) from exc
+            status_code=500,
+            detail=f"feature row has missing values: {', '.join(blank[:5])}",
+        )
 
-    predicted, confidence, distribution = app.state.artifacts.predict(features)
+    predicted, confidence, distribution = artifacts.predict(vector)
+    true_label = str(table.loc[name, LABEL_COLUMN])
+
     return {
-        "filename": filename,
+        "filename": name,
         "predicted": predicted,
         "confidence": confidence,
         "probabilities": distribution,

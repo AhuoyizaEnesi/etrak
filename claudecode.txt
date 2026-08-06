@@ -1,0 +1,13 @@
+╭─── Claude Code v2.1.222 ─────────────────────────────────────────────────────╮
+│                           │ Tips for getting started                         │
+│       Welcome back!       │ Run /init to create a CLAUDE.md file with instr… │
+│                           │ ──────────────────────────────────────────────── │
+│          ▐▛███▜▌          │ What's new                                       │
+│         ▝▜█████▛▘         │ Fixed worktree-isolated sessions and their suba… │
+│           ▘▘ ▝▝           │ Fixed PreToolUse auto-allow hooks bypassing too… │
+│                           │ Fixed `/usage-credits` on Team and Enterprise s… │
+│   Sonnet 5 · Claude API   │ /release-notes for more                          │
+│          ~\etrak          │                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+ ‼ Your login expires in 3 days · run /login to renew
