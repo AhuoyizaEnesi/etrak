@@ -6,28 +6,43 @@ of them is already represented in features.csv by the feature vector the model
 actually consumes — so nothing is lost at inference time.
 
 Consequences of that choice, all deliberate:
-  * no filesystem access to data/ and no dependency on src/features.py
+  * no filesystem access to data/
   * no /signal endpoint, because the raw waveform is not available
   * only recordings present in features.csv can be classified
+
+/predict-upload is the exception: an uploaded recording has no precomputed row, so
+that path does run the real feature extraction from src/features.py.
 """
 
 from __future__ import annotations
 
+import io
 import json
 import os
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIR = ROOT / "models"
 FEATURES_CSV = ROOT / "features.csv"
+
+# Uploads need the real extractor (src/) and the upload validator (backend/).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(ROOT / "src"))
+
+from features import features_from_frame  # noqa: E402
+from prep import REQUIRED, PrepError, prep  # noqa: E402
+
+# Refuse absurd uploads before pandas tries to parse them.
+MAX_UPLOAD_BYTES = 64 * 1024 * 1024
 
 # Columns in features.csv that describe the recording rather than the movement.
 ID_COLUMN = "recording"
@@ -165,6 +180,19 @@ class PredictResponse(BaseModel):
     probabilities: dict[str, float]
     true_label: str
     correct: bool
+    n_samples: int | None = Field(
+        default=None, description="Rows in the source recording, when the table records it"
+    )
+
+
+class UploadPredictResponse(BaseModel):
+    """No true_label or correct here - an uploaded recording has no known label."""
+
+    filename: str
+    predicted: str
+    confidence: float
+    probabilities: dict[str, float]
+    report: dict[str, Any] = Field(description="What prep() validated and trimmed")
 
 
 @app.get("/recordings", response_model=RecordingsResponse)
@@ -178,6 +206,85 @@ def list_recordings() -> dict[str, Any]:
             {"filename": str(row[ID_COLUMN]), "activity": str(row[LABEL_COLUMN])}
             for _, row in table.iterrows()
         ],
+    }
+
+
+@app.post("/predict-upload", response_model=UploadPredictResponse)
+async def predict_upload(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Classify an uploaded Apple-format wrist CSV.
+
+    Unlike /predict, there is no precomputed row to look up, so this runs the same
+    feature extraction the training pipeline used - prep() first, to validate and
+    trim the upload, then features_from_frame() on the cleaned frame.
+    """
+    artifacts = app.state.artifacts
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="uploaded file is empty")
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"file is {len(raw) / 1e6:.1f} MB; limit is {MAX_UPLOAD_BYTES / 1e6:.0f} MB",
+        )
+
+    try:
+        df = pd.read_csv(io.BytesIO(raw))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"could not parse CSV: {type(exc).__name__}: {exc}"
+        ) from exc
+
+    try:
+        clean, report = prep(df)
+    except PrepError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # prep() drops rows where every sensor column is blank; rows blank in only some
+    # columns survive and would poison the statistics, so clear them the same way
+    # the training loader does before extracting.
+    before = len(clean)
+    clean = clean.dropna(subset=REQUIRED).reset_index(drop=True)
+    report = {**report, "partial_rows_dropped": before - len(clean)}
+    if len(clean) < 100:
+        raise HTTPException(
+            status_code=400,
+            detail=f"only {len(clean)} complete rows after cleaning; too short to classify",
+        )
+
+    try:
+        features = features_from_frame(clean)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"feature extraction failed: {type(exc).__name__}: {exc}",
+        ) from exc
+
+    absent = [c for c in artifacts.feature_columns if c not in features]
+    if absent:
+        raise HTTPException(
+            status_code=500,
+            detail=f"extractor did not produce {len(absent)} expected feature(s): "
+            f"{', '.join(absent[:5])}",
+        )
+
+    vector = pd.DataFrame(
+        [[features[c] for c in artifacts.feature_columns]], columns=artifacts.feature_columns
+    )
+    if vector.isna().any().any():
+        blank = vector.columns[vector.isna().iloc[0]].tolist()
+        raise HTTPException(
+            status_code=400,
+            detail=f"extracted features contain missing values: {', '.join(blank[:5])}",
+        )
+
+    predicted, confidence, distribution = artifacts.predict(vector)
+    return {
+        "filename": file.filename or "upload.csv",
+        "predicted": predicted,
+        "confidence": confidence,
+        "probabilities": distribution,
+        "report": report,
     }
 
 
@@ -207,6 +314,10 @@ def predict(request: PredictRequest) -> dict[str, Any]:
     predicted, confidence, distribution = artifacts.predict(vector)
     true_label = str(table.loc[name, LABEL_COLUMN])
 
+    n_samples = None
+    if "n_samples" in table.columns:
+        n_samples = int(table.loc[name, "n_samples"])
+
     return {
         "filename": name,
         "predicted": predicted,
@@ -214,4 +325,5 @@ def predict(request: PredictRequest) -> dict[str, Any]:
         "probabilities": distribution,
         "true_label": true_label,
         "correct": predicted == true_label,
+        "n_samples": n_samples,
     }

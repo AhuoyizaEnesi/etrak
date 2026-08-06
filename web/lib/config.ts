@@ -24,4 +24,20 @@ export interface PredictResponse {
   probabilities: Record<string, number>;
   true_label: string;
   correct: boolean;
+  n_samples: number | null;
+}
+
+/** Uploaded recordings have no known label, so no true_label/correct. */
+export interface UploadPredictResponse {
+  filename: string;
+  predicted: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+  report: {
+    rows_in: number;
+    rows_out: number;
+    leading_warmup_dropped: number;
+    has_secondsElapsed: boolean;
+    partial_rows_dropped: number;
+  };
 }

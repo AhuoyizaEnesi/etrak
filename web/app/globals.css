@@ -1,50 +1,47 @@
-/* Fort-inspired: white ground, black type, one red accent, no curves anywhere. */
+/* Warm paper palette, Fraunces display over Inter text, bronze as the single
+   accent. Ported from design-1-form-fort.html. */
 
 :root {
-  --ground: #ffffff;
-  --ink: #000000;
-  --red: #ff0000; /* graphics only: image border, winning bar */
-  --red-ink: #cc0000; /* red set as type, darkened to clear AA on white */
-  --rule: #d9d9d9; /* hairline rules and bar tracks */
-  --ink-muted: #595959; /* secondary labels - 7.0:1 on white */
-  --bar-fill: #4d4d4d; /* non-winning probability bars - 8.6:1 on white */
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --paper: #faf9f6;
+  --ink: #181512;
+  --stone: #8a8377;
+  --line: #e7e2d9;
+  --cream: #f1ebe0;
+  --bronze: #9c7248;
+  --alert: #a8442c; /* warm brick for rejected files and unreachable backend */
+
+  --serif: var(--font-serif), Georgia, serif;
+  --sans: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
-  border-radius: 0; /* sharp corners only, enforced globally */
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
 }
 
-html,
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--ground);
+  background: var(--paper);
   color: var(--ink);
-  font-family: var(--mono);
-  font-size: 14px;
-  line-height: 1.5;
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-button,
-select {
-  font: inherit;
+a {
   color: inherit;
-  background: transparent;
-  border: 1px solid var(--ink);
-  appearance: none;
-  cursor: pointer;
+  text-decoration: none;
 }
 
-button:disabled,
-select:disabled {
-  color: var(--ink-muted);
-  border-color: var(--rule);
-  cursor: not-allowed;
+.serif {
+  font-family: var(--serif);
 }
 
 img {
@@ -52,306 +49,456 @@ img {
   max-width: 100%;
 }
 
-/* ---------- layout ---------- */
+/* ---------- header ---------- */
 
-.shell {
-  max-width: 1080px;
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 48px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+nav {
+  display: flex;
+  gap: 36px;
+  font-size: 13.5px;
+  color: var(--stone);
+}
+
+nav a:hover {
+  color: var(--ink);
+}
+
+nav a:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+/* ---------- main ---------- */
+
+main {
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 48px 32px 96px;
+  padding: 80px 48px 64px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 80px;
+  align-items: start;
 }
 
-.rule {
-  height: 1px;
-  background: var(--rule);
-  border: 0;
-}
-
-.masthead {
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--ink);
-}
-
-.masthead h1 {
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.masthead p {
-  margin-top: 8px;
-  color: var(--ink-muted);
-  letter-spacing: 0.04em;
-}
-
-.label {
+.eyebrow {
   font-size: 11px;
-  letter-spacing: 0.22em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--ink-muted);
+  color: var(--bronze);
+  margin-bottom: 22px;
+}
+
+h1 {
+  font-family: var(--serif);
+  font-size: clamp(46px, 6.4vw, 82px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin-bottom: 18px;
+  overflow-wrap: break-word;
+}
+
+.lede {
+  font-size: 16px;
+  color: var(--stone);
+  max-width: 46ch;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 36px;
+}
+
+.confidence {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 500;
+  color: var(--bronze);
+  margin-bottom: 10px;
+}
+
+.confidence span {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--stone);
+  font-weight: 400;
+  margin-left: 10px;
+  letter-spacing: 0.02em;
+}
+
+.meta {
+  font-size: 13.5px;
+  color: var(--stone);
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 36px;
+}
+
+.meta b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.meta .ok {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.meta .off {
+  color: var(--alert);
+  font-weight: 500;
+}
+
+/* ---------- probabilities ---------- */
+
+.prob-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--stone);
+  margin-bottom: 24px;
+}
+
+.prob-row {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) 1fr 52px;
+  align-items: center;
+  gap: 20px;
+  padding: 9px 0;
+}
+
+.prob-row .name {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.prob-row .track {
+  height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.prob-row .fill {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  border-radius: 2px;
+  min-width: 2px;
+  transition: width 240ms ease;
+}
+
+.prob-row .val {
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--stone);
+}
+
+.prob-row.winner .name {
+  font-weight: 600;
+}
+
+.prob-row.winner .fill {
+  background: var(--bronze);
+}
+
+.prob-row.winner .val {
+  color: var(--bronze);
+  font-weight: 600;
+}
+
+/* ---------- controls ---------- */
+
+.cta-row {
+  margin-top: 44px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-block;
+  border: 1px solid var(--ink);
+  padding: 13px 26px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, opacity 0.18s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--bronze);
+  outline-offset: 3px;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-solid {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn-solid:hover:not(:disabled) {
+  background: var(--bronze);
+  border-color: var(--bronze);
+  color: var(--paper);
+}
+
+.field-wrap {
+  position: relative;
+  flex: 1 1 300px;
+  min-width: 220px;
+}
+
+.field {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 13px 44px 13px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.field:focus-visible {
+  outline: 2px solid var(--bronze);
+  outline-offset: 2px;
+}
+
+.field:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 22px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--stone);
+  border-bottom: 1.5px solid var(--stone);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.cta-note {
+  margin-top: 16px;
+  font-size: 12.5px;
+  color: var(--stone);
+}
+
+.cta-note b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.file-input {
+  display: none;
+}
+
+.alert {
+  margin-top: 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--alert);
+  border-radius: 14px;
+  color: var(--alert);
+  font-size: 13.5px;
+  background: rgba(168, 68, 44, 0.04);
+}
+
+/* ---------- arch reference card ---------- */
+
+.arch {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 999px 999px 22px 22px;
+  padding: 96px 40px 40px;
+  text-align: center;
+}
+
+/* The reference PNGs sit on a near-white ground; multiply drops it into the
+   cream so the figure reads as printed on the card rather than pasted over it. */
+.arch img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 0 auto;
+  mix-blend-mode: multiply;
+}
+
+.arch-empty {
+  max-width: 300px;
+  margin: 0 auto;
+  aspect-ratio: 300 / 212;
+  border: 1px dashed var(--line);
+  border-radius: 999px 999px 14px 14px;
+}
+
+.arch .caption-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bronze);
+  margin-top: 36px;
+}
+
+.arch .caption {
+  font-family: var(--serif);
+  font-size: 19px;
+  margin-top: 6px;
+  line-height: 1.3;
+}
+
+/* Whole-page drop target, as the design's copy promises. */
+.page.dragging {
+  outline: 2px dashed var(--bronze);
+  outline-offset: -12px;
 }
 
 /* ---------- how it works ---------- */
 
 .steps {
-  margin-top: 56px; /* matches .dist - the strip now closes the page */
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 48px 88px;
 }
 
 .steps-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--stone);
   display: block;
-  padding-bottom: 12px;
+  padding-bottom: 20px;
 }
 
 .steps-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--ink);
+  gap: 44px;
+  border-top: 1px solid var(--line);
+  padding-top: 28px;
   list-style: none;
 }
 
-@media (max-width: 860px) {
-  .steps-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.step {
-  padding: 18px 24px 20px 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-.step + .step {
-  padding-left: 24px;
-  border-left: 1px solid var(--rule);
-}
-
-@media (max-width: 860px) {
-  .step + .step {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-/* The one flash of red in this section: the step index. */
 .step-index {
   display: block;
-  color: var(--red-ink);
-  font-size: 11px;
-  letter-spacing: 0.22em;
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--bronze);
 }
 
 .step-title {
   display: block;
   margin-top: 10px;
-  letter-spacing: 0.04em;
+  font-weight: 500;
 }
 
 .step-note {
   margin-top: 8px;
-  color: var(--ink-muted);
-  letter-spacing: 0.02em;
+  color: var(--stone);
+  font-size: 13.5px;
 }
 
-/* ---------- controls ---------- */
+/* ---------- footer ---------- */
 
-.controls {
+footer {
+  border-top: 1px solid var(--line);
+  padding: 22px 48px;
   display: flex;
+  justify-content: space-between;
   gap: 12px;
-  align-items: stretch;
-  margin: 32px 0;
-  flex-wrap: wrap;
-}
-
-.select-wrap {
-  position: relative;
-  flex: 1 1 420px;
-  min-width: 280px;
-}
-
-.select-wrap select {
-  width: 100%;
-  height: 44px;
-  padding: 0 40px 0 14px;
-  border-color: var(--rule);
-  text-overflow: ellipsis;
-}
-
-.select-wrap select:focus-visible {
-  outline: 1px solid var(--ink);
-  outline-offset: -1px;
-}
-
-/* Custom caret: a square, not a chevron. */
-.select-wrap::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  width: 8px;
-  height: 8px;
-  background: var(--ink);
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.select-wrap select option {
-  background: var(--ground);
-  color: var(--ink);
-}
-
-.predict {
-  height: 44px;
-  padding: 0 32px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
   font-size: 12px;
-  transition: background 120ms linear, color 120ms linear;
+  color: var(--stone);
+  letter-spacing: 0.03em;
 }
 
-.predict:not(:disabled):hover {
-  background: var(--ink);
-  color: var(--ground);
-}
+/* ---------- responsive ---------- */
 
-.status {
-  margin: 20px 0;
-  color: var(--ink-muted);
-  letter-spacing: 0.04em;
-}
+@media (max-width: 900px) {
+  header {
+    padding: 20px 24px;
+  }
 
-.status.error {
-  color: var(--red-ink);
-}
+  nav {
+    gap: 22px;
+  }
 
-/* ---------- result ---------- */
+  main {
+    grid-template-columns: 1fr;
+    gap: 56px;
+    padding: 48px 24px;
+  }
 
-.result {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 48px;
-  margin-top: 40px;
-  align-items: start;
-}
+  .arch {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 72px 32px 32px;
+  }
 
-@media (max-width: 860px) {
-  .result {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 32px;
+  .steps {
+    padding: 0 24px 64px;
+  }
+
+  .steps-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  footer {
+    padding: 20px 24px;
+    flex-direction: column;
+    gap: 6px;
   }
 }
 
-.verdict h2 {
-  font-size: 56px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  margin-top: 10px;
-  line-height: 1.05;
-  word-break: break-word;
-}
+@media (max-width: 560px) {
+  .prob-row {
+    grid-template-columns: minmax(0, 1fr) 46px;
+    gap: 8px 14px;
+  }
 
-/* The raw class code, kept visible but subordinate to the readable name. */
-.code-line {
-  display: block;
-  margin-top: 10px;
-}
-
-.readout {
-  display: flex;
-  gap: 40px;
-  margin-top: 24px;
-  flex-wrap: wrap;
-}
-
-.readout .value {
-  font-size: 24px;
-  margin-top: 6px;
-  letter-spacing: 0.04em;
-}
-
-/* Exercise names run long; wrap them instead of stretching the readout row. */
-.value-name {
-  max-width: 24ch;
-}
-
-.match {
-  color: var(--ink);
-}
-
-.mismatch {
-  color: var(--red-ink);
-}
-
-/* The detected exercise, held in a red square. */
-.plate {
-  border: 2px solid var(--red);
-  aspect-ratio: 1 / 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: var(--ground);
-}
-
-.plate img {
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.plate-caption {
-  margin-top: 10px;
-  text-align: center;
-}
-
-/* ---------- probability bars ---------- */
-
-.dist {
-  margin-top: 56px;
-}
-
-.dist-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--ink);
-}
-
-.bar-row {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) 68px;
-  gap: 16px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-.bar-row .name {
-  letter-spacing: 0.1em;
-  color: var(--ink-muted);
-}
-
-.bar-row.top .name,
-.bar-row.top .pct {
-  color: var(--ink);
-}
-
-.track {
-  height: 10px;
-  background: var(--rule);
-}
-
-.fill {
-  height: 100%;
-  background: var(--bar-fill);
-  transition: width 220ms linear;
-}
-
-.bar-row.top .fill {
-  background: var(--red);
-}
-
-.pct {
-  text-align: right;
-  color: var(--ink-muted);
-  font-variant-numeric: tabular-nums;
+  .prob-row .track {
+    grid-column: 1 / -1;
+    order: 3;
+  }
 }
