@@ -1,0 +1,357 @@
+/* Fort-inspired: white ground, black type, one red accent, no curves anywhere. */
+
+:root {
+  --ground: #ffffff;
+  --ink: #000000;
+  --red: #ff0000; /* graphics only: image border, winning bar */
+  --red-ink: #cc0000; /* red set as type, darkened to clear AA on white */
+  --rule: #d9d9d9; /* hairline rules and bar tracks */
+  --ink-muted: #595959; /* secondary labels - 7.0:1 on white */
+  --bar-fill: #4d4d4d; /* non-winning probability bars - 8.6:1 on white */
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-radius: 0; /* sharp corners only, enforced globally */
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+select {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--ink);
+  appearance: none;
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled {
+  color: var(--ink-muted);
+  border-color: var(--rule);
+  cursor: not-allowed;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---------- layout ---------- */
+
+.shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 48px 32px 96px;
+}
+
+.rule {
+  height: 1px;
+  background: var(--rule);
+  border: 0;
+}
+
+.masthead {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.masthead h1 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.masthead p {
+  margin-top: 8px;
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* ---------- how it works ---------- */
+
+.steps {
+  margin-top: 56px; /* matches .dist - the strip now closes the page */
+}
+
+.steps-title {
+  display: block;
+  padding-bottom: 12px;
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--ink);
+  list-style: none;
+}
+
+@media (max-width: 860px) {
+  .steps-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.step {
+  padding: 18px 24px 20px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.step + .step {
+  padding-left: 24px;
+  border-left: 1px solid var(--rule);
+}
+
+@media (max-width: 860px) {
+  .step + .step {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+/* The one flash of red in this section: the step index. */
+.step-index {
+  display: block;
+  color: var(--red-ink);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+}
+
+.step-title {
+  display: block;
+  margin-top: 10px;
+  letter-spacing: 0.04em;
+}
+
+.step-note {
+  margin-top: 8px;
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- controls ---------- */
+
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  margin: 32px 0;
+  flex-wrap: wrap;
+}
+
+.select-wrap {
+  position: relative;
+  flex: 1 1 420px;
+  min-width: 280px;
+}
+
+.select-wrap select {
+  width: 100%;
+  height: 44px;
+  padding: 0 40px 0 14px;
+  border-color: var(--rule);
+  text-overflow: ellipsis;
+}
+
+.select-wrap select:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: -1px;
+}
+
+/* Custom caret: a square, not a chevron. */
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  background: var(--ink);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.select-wrap select option {
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.predict {
+  height: 44px;
+  padding: 0 32px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 12px;
+  transition: background 120ms linear, color 120ms linear;
+}
+
+.predict:not(:disabled):hover {
+  background: var(--ink);
+  color: var(--ground);
+}
+
+.status {
+  margin: 20px 0;
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+}
+
+.status.error {
+  color: var(--red-ink);
+}
+
+/* ---------- result ---------- */
+
+.result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 48px;
+  margin-top: 40px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .result {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+}
+
+.verdict h2 {
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  margin-top: 10px;
+  line-height: 1.05;
+  word-break: break-word;
+}
+
+/* The raw class code, kept visible but subordinate to the readable name. */
+.code-line {
+  display: block;
+  margin-top: 10px;
+}
+
+.readout {
+  display: flex;
+  gap: 40px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.readout .value {
+  font-size: 24px;
+  margin-top: 6px;
+  letter-spacing: 0.04em;
+}
+
+/* Exercise names run long; wrap them instead of stretching the readout row. */
+.value-name {
+  max-width: 24ch;
+}
+
+.match {
+  color: var(--ink);
+}
+
+.mismatch {
+  color: var(--red-ink);
+}
+
+/* The detected exercise, held in a red square. */
+.plate {
+  border: 2px solid var(--red);
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--ground);
+}
+
+.plate img {
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.plate-caption {
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ---------- probability bars ---------- */
+
+.dist {
+  margin-top: 56px;
+}
+
+.dist-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 68px;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.bar-row .name {
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+.bar-row.top .name,
+.bar-row.top .pct {
+  color: var(--ink);
+}
+
+.track {
+  height: 10px;
+  background: var(--rule);
+}
+
+.fill {
+  height: 100%;
+  background: var(--bar-fill);
+  transition: width 220ms linear;
+}
+
+.bar-row.top .fill {
+  background: var(--red);
+}
+
+.pct {
+  text-align: right;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
